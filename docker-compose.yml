@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  luakhoe-ai:
+    build: .
+    container_name: luakhoe-ai-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./models:/app/models
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      - IS_PRODUCTION=True
+      - LOG_LEVEL=INFO
+    restart: always
