@@ -16,7 +16,31 @@ from api.schemas import APIStatus, PredictionResult
 from config import settings
 import uvicorn
 import uuid
-import time
+import numpy as np
+from PIL import Image
+import io
+
+def preprocess_image(image_bytes: bytes) -> np.ndarray:
+    # 1. Đọc ảnh bằng hệ màu RGB
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    
+    # 2. THÊM VIỀN ĐỂ ẢNH THÀNH HÌNH VUÔNG (Letterboxing)
+    max_size = max(img.size)
+    new_image = Image.new("RGB", (max_size, max_size), (0, 0, 0))
+    new_image.paste(img, ((max_size - img.size[0]) // 2,
+                           (max_size - img.size[1]) // 2))
+    
+    # 3. Resize về 300x300 an toàn không bị bóp méo
+    new_image = new_image.resize((300, 300))
+    
+    # 4. Chuyển thành numpy array và chuẩn hóa (InceptionResNetV2)
+    image_np = np.array(new_image)
+    image_np = (image_np.astype(np.float32) / 127.5) - 1.0
+    
+    # 5. Thêm chiều batch (1) -> (1, 300, 300, 3)
+    image_np = np.expand_dims(image_np, axis=0)
+    
+    return image_np
 
 app = FastAPI(
     title="Lúa Khỏe AI - Rice Disease Detection",
@@ -84,7 +108,7 @@ async def predict(
         saved_path = await storage.save_image(file, unique_filename)
         
         # 3. Model Prediction
-        image_np = preprocessor.preprocess_pil(image)
+        image_np = preprocess_image(image_bytes)
         result = engine.predict(image_np)
         
         # 4. Post-inference Checks

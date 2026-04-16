@@ -13,3 +13,4 @@ pillow
 loguru
 requests
 onnxscript
+ultralytics

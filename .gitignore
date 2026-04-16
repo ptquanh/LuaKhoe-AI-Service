@@ -15,9 +15,8 @@ __pycache__/
 *.swo
 
 # Project specific
-data/
-models/*.onnx
-models/*.pth
+data
+models
 .env
 
 # Distribution / packaging
