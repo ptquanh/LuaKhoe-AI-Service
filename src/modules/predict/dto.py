@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional
 
 class PredictionResult(BaseModel):
     disease: str
@@ -10,9 +10,3 @@ class PredictionResult(BaseModel):
     saved_path: str
     filename: str
     low_confidence: Optional[bool] = False
-
-class APIStatus(BaseModel):
-    status: str
-    ai_strategy: str
-    storage_strategy: str
-    labels: List[str]

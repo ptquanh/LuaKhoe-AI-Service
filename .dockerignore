@@ -1,0 +1,26 @@
+# Thư mục môi trường ảo (Nặng nhất)
+venv/
+.venv/
+env/
+
+# Dữ liệu hình ảnh và logs
+data/
+logs/
+*.log
+
+# Version control
+.git/
+.gitignore
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.idea/
+.vscode/
+
+# Models (Nếu bạn mount qua volume thì không cần copy vào image)
+# models/

@@ -54,11 +54,11 @@ init:
 # Run Application
 run:
 	@echo ">>> Starting FastAPI server (Production Mode)..."
-	@$(VENV_PYTHON) api/main.py
+	@$(VENV_PYTHON) src/main.py
 
 dev:
 	@echo ">>> Starting FastAPI server (Development Mode)..."
-	@$(VENV_PYTHON) -m uvicorn api.main:app --reload --host $(shell $(VENV_PYTHON) -c "from config import settings; print(settings.HOST)") --port $(shell $(VENV_PYTHON) -c "from config import settings; print(settings.PORT)")
+	@$(VENV_PYTHON) -m uvicorn src.main:app --reload --host $(shell $(VENV_PYTHON) -c "from config import settings; print(settings.HOST)") --port $(shell $(VENV_PYTHON) -c "from config import settings; print(settings.PORT)")
 
 # Docker Commands
 docker-up:

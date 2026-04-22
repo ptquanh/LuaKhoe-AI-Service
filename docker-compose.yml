@@ -10,9 +10,44 @@ services:
       - .:/app
       - ./models:/app/models
       - ./logs:/app/logs
+      - ./data:/app/data
     env_file:
       - .env
     environment:
       - IS_PRODUCTION=True
       - LOG_LEVEL=INFO
+      # Override the DATABASE_URL to point to the docker-compose pgvector service
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@luakhoe-db:5432/luakhoe
+    depends_on:
+      db_ready:
+        condition: service_completed_successfully
     restart: always
+
+  luakhoe-db:
+    image: pgvector/pgvector:pg17
+    container_name: luakhoe-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: luakhoe
+    ports:
+      - "5432:5432"
+    volumes:
+      - luakhoe_pgdata:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d luakhoe"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # A helper service to wait for the DB to be ready before starting the API
+  db_ready:
+    image: postgres:17-alpine
+    depends_on:
+      luakhoe-db:
+        condition: service_healthy
+    command: ["echo", "Database is ready!"]
+
+volumes:
+  luakhoe_pgdata:

@@ -14,3 +14,19 @@ loguru
 requests
 onnxscript
 ultralytics
+
+# RAG Pipeline — LangGraph + Gemini + pgvector
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-google-genai>=2.0.0
+langchain-groq>=0.1.0
+langchain-text-splitters>=0.3.0
+
+# Database (PostgreSQL + pgvector)
+sqlalchemy[asyncio]>=2.0
+asyncpg>=0.30.0
+pgvector>=0.3.0
+
+# Document Parsing (PDF, Word)
+PyMuPDF>=1.24.0
+python-docx>=1.1.0

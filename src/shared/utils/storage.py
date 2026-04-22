@@ -3,7 +3,7 @@ import os
 import shutil
 from fastapi import UploadFile
 from config import settings
-from src.logger import logger
+from src.shared.utils.logger import logger
 
 # 1. Base Class for Storage Strategy
 class BaseStorage(ABC):

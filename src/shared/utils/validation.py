@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image
 from config import settings
-from src.logger import logger
+from src.shared.utils.logger import logger
 
 class DataValidator:
     """
