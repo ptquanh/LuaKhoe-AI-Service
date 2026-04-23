@@ -13,7 +13,7 @@ import uvicorn
 # Import Routers
 from src.modules.system import controller as system
 from src.modules.predict import controller as predict
-from src.modules.advisory import controller as rag
+from src.modules.advisory import controller as advisory
 from src.modules.analyze import controller as analyze
 from src.shared.middlewares.dependencies import rag_state
 
@@ -37,8 +37,9 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(system.router)
+app.include_router(system.admin_router)
 app.include_router(predict.router)
-app.include_router(rag.router)
+app.include_router(advisory.router)
 app.include_router(analyze.router)
 
 @app.on_event("startup")
@@ -51,11 +52,13 @@ async def startup_event():
     if settings.is_rag_enabled:
         try:
             from src.shared.database import init_db
+            from src.modules.system.config_service import ConfigService
             from src.modules.advisory.repository import VectorStoreService
             from src.modules.advisory.recommendation_graph import RecommendationGraphBuilder
             from src.modules.advisory.ingestion import IngestionPipeline
 
             await init_db()
+            await ConfigService.load_all()
 
             rag_state.vector_store = VectorStoreService()
             builder = RecommendationGraphBuilder(rag_state.vector_store)

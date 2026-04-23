@@ -19,8 +19,7 @@ async def recommend(request: RecommendationRequest):
     start_time = time.time()
 
     initial_state = {
-        "disease_classes": [request.disease],
-        "confidence": request.confidence,
+        "disease_events": [event.model_dump() for event in request.events],
         "rag_context": [],
         "recommendation": None,
         "error": None,

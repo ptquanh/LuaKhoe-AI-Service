@@ -16,9 +16,16 @@ class RecommendationResult(BaseModel):
     sources_used: List[str]
     confidence_note: str
 
+class Lesion(BaseModel):
+    mask_area_px: int
+
+class DiseaseEvent(BaseModel):
+    disease_class: str
+    confidence: float
+    lesions: List[Lesion]
+
 class RecommendationRequest(BaseModel):
-    disease: str = Field(..., description="Detected disease name from CV model")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="CV model confidence score")
+    events: List[DiseaseEvent]
 
 class RecommendationResponse(BaseModel):
     status: str

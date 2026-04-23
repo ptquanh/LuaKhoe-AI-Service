@@ -9,6 +9,7 @@ from src.shared.database import async_session_factory
 from src.modules.advisory.models import DocumentChunk
 from src.shared.utils.logger import logger
 from config import settings
+from src.modules.system.config_service import ConfigService
 
 
 class VectorStoreService:
@@ -32,8 +33,8 @@ class VectorStoreService:
         k: int | None = None,
         score_threshold: float | None = None,
     ) -> list[tuple[Document, float]]:
-        k = k or settings.RAG_TOP_K
-        score_threshold = score_threshold or settings.RAG_SIMILARITY_THRESHOLD
+        k = k or ConfigService.get_int("RAG_TOP_K", settings.RAG_TOP_K)
+        score_threshold = score_threshold or ConfigService.get_float("RAG_SIMILARITY_THRESHOLD", settings.RAG_SIMILARITY_THRESHOLD)
 
         query_embedding = await self.embed_text(query)
 

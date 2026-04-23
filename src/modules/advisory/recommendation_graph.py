@@ -11,11 +11,11 @@ from src.modules.advisory.repository import VectorStoreService
 from src.modules.advisory.prompts import RAG_SYSTEM_PROMPT, RAG_HUMAN_PROMPT, SAFETY_FALLBACK_RESPONSE
 from src.shared.utils.logger import logger
 from config import settings
+from src.modules.system.config_service import ConfigService
 
 
 class RecommendationState(TypedDict):
-    disease_classes: list[str]
-    confidence: float
+    disease_events: list[dict]
     rag_context: list[Document]
     recommendation: dict | None
     error: str | None
@@ -53,31 +53,51 @@ class RecommendationGraphBuilder:
     async def retrieve_document_context(
         self, state: RecommendationState,
     ) -> dict:
-        disease_classes = state["disease_classes"]
-        query = (
-            "Rice disease treatment, management, and nutritional advice: "
-            + ", ".join(disease_classes)
-        )
-        logger.info(f"[RAG] Retrieving context for: {query}")
+        disease_classes = [ev.get("disease_class", "") for ev in state.get("disease_events", [])]
+        
+        all_documents = []
+        seen_contents = set()
+        
+        for disease in disease_classes:
+            if not disease:
+                continue
+                
+            query = f"Rice disease treatment, management, and nutritional advice: {disease}"
+            logger.info(f"[RAG] Retrieving context for: {query}")
 
-        try:
-            results = await self._vector_store.similarity_search(query)
-            documents = [doc for doc, _ in results]
+            try:
+                results = await self._vector_store.similarity_search(query)
+                
+                for doc, score in results:
+                    src = doc.metadata.get("source", "?")
+                    logger.debug(f"  [{score:.3f}] {src}: {doc.page_content[:80]}...")
+                    if doc.page_content not in seen_contents:
+                        seen_contents.add(doc.page_content)
+                        all_documents.append(doc)
+            except Exception as e:
+                logger.error(f"[RAG] Vector retrieval failed for {disease}: {e}")
+                return {"rag_context": [], "error": str(e)}
 
-            for doc, score in results:
-                src = doc.metadata.get("source", "?")
-                logger.debug(f"  [{score:.3f}] {src}: {doc.page_content[:80]}...")
-
-            return {"rag_context": documents}
-        except Exception as e:
-            logger.error(f"[RAG] Vector retrieval failed: {e}")
-            return {"rag_context": [], "error": str(e)}
+        return {"rag_context": all_documents}
 
     # ── Router ────────────────────────────────────────────────────
 
     def _route_after_retrieval(self, state: RecommendationState) -> str:
         if state.get("error"):
             return "safety_fallback"
+            
+        severity_threshold = ConfigService.get_float("SEVERITY_THRESHOLD", 50000.0)
+        
+        total_area = sum(
+            lesion.get("mask_area_px", 0)
+            for ev in state.get("disease_events", [])
+            for lesion in ev.get("lesions", [])
+        )
+
+        if total_area > severity_threshold:
+            state["error"] = f"Total lesion area {total_area} exceeds severity threshold {severity_threshold}."
+            return "safety_fallback"
+
         if not state.get("rag_context"):
             return "safety_fallback"
         return "generate_grounded_advice"
@@ -88,8 +108,8 @@ class RecommendationGraphBuilder:
         self, state: RecommendationState,
     ) -> dict:
         rag_context = state["rag_context"]
-        disease_classes = state["disease_classes"]
-        confidence = state["confidence"]
+        disease_classes = [ev.get("disease_class", "") for ev in state.get("disease_events", [])]
+        confidence = max([ev.get("confidence", 0.0) for ev in state.get("disease_events", [])] or [0.0])
 
         context_text = "\n\n---\n\n".join(
             f"[Nguồn: {doc.metadata.get('source', 'unknown')} | "
@@ -126,11 +146,12 @@ class RecommendationGraphBuilder:
 
     async def safety_fallback(self, state: RecommendationState) -> dict:
         fallback = copy.deepcopy(SAFETY_FALLBACK_RESPONSE)
-        fallback["disease_name"] = ", ".join(state["disease_classes"])
+        disease_classes = [ev.get("disease_class", "") for ev in state.get("disease_events", [])]
+        fallback["disease_name"] = ", ".join(disease_classes)
 
         reason = state.get("error", "Không tìm thấy tài liệu phù hợp")
         logger.warning(
-            f"[RAG] Safety fallback for {state['disease_classes']}. "
+            f"[RAG] Safety fallback for {disease_classes}. "
             f"Reason: {reason}"
         )
         return {"recommendation": fallback}
