@@ -1,30 +1,25 @@
-# Makefile for Lua Khoe AI (Windows Optimized)
+# Makefile for Lua Khoe AI Inference Service (Windows)
 
-# Variables
 VENV = venv
 VENV_PYTHON = $(VENV)\Scripts\python.exe
 VENV_PIP = $(VENV_PYTHON) -m pip
-# VENV_UVICORN no longer needed as we use -m uvicorn
 
-.PHONY: all help setup install init run dev test clean docker-up docker-down freeze logs
+.PHONY: all help setup install run dev test clean docker-build docker-run
 
 all: help
 
 help:
 	@echo "======================================================================"
-	@echo "Lua Khoe AI - Project Commands"
+	@echo "Lua Khoe AI Inference Service - Commands"
 	@echo "======================================================================"
-	@echo "  make setup        - Create venv, install deps, and create .env"
+	@echo "  make setup        - Create venv and install dependencies"
 	@echo "  make install      - Alias for setup"
-	@echo "  make init         - Export ONNX model and download test images"
-	@echo "  make run          - Run the FastAPI application (respects config.py)"
+	@echo "  make run          - Run FastAPI server (production mode)"
 	@echo "  make dev          - Run development server with --reload"
-	@echo "  make test         - Run internal tests (Note: API must be running)"
-	@echo "  make docker-up    - Build and start Docker containers"
-	@echo "  make docker-down  - Stop Docker containers"
-	@echo "  make logs         - View Docker logs"
-	@echo "  make freeze       - Update requirements.txt from current venv"
-	@echo "  make clean        - Remove virtual environment and cache files"
+	@echo "  make test         - Run tests"
+	@echo "  make docker-build - Build Docker image"
+	@echo "  make docker-run   - Run Docker container"
+	@echo "  make clean        - Remove venv and cache files"
 	@echo "======================================================================"
 
 # Setup Environment
@@ -36,52 +31,34 @@ setup:
 	@$(VENV_PIP) install -r requirements.txt
 	@echo ">>> Creating .env from template if not exists..."
 	@if not exist ".env" copy .env.example .env
-	@echo ">>> Ensuring data directories exist..."
-	@if not exist "data\uploads" mkdir data\uploads
+	@echo ">>> Ensuring model directory exists..."
 	@if not exist "models" mkdir models
 	@echo ">>> Setup complete!"
 
 install: setup
 
-# Initialize Model & Data
-init:
-	@echo ">>> Exporting ONNX model..."
-	@$(VENV_PYTHON) src/export_onnx.py
-	@echo ">>> Downloading test images..."
-	@$(VENV_PYTHON) tests/download_test_images.py
-	@echo ">>> Initialization complete!"
-
 # Run Application
 run:
-	@echo ">>> Starting FastAPI server (Production Mode)..."
+	@echo ">>> Starting AI Inference Service..."
 	@$(VENV_PYTHON) src/main.py
 
 dev:
-	@echo ">>> Starting FastAPI server (Development Mode)..."
-	@$(VENV_PYTHON) -m uvicorn src.main:app --reload --host $(shell $(VENV_PYTHON) -c "from config import settings; print(settings.HOST)") --port $(shell $(VENV_PYTHON) -c "from config import settings; print(settings.PORT)")
+	@echo ">>> Starting AI Inference Service (dev mode)..."
+	@$(VENV_PYTHON) -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
-# Docker Commands
-docker-up:
-	@echo ">>> Building and starting Docker containers..."
-	docker-compose up --build -d
+# Docker
+docker-build:
+	docker build -t luakhoe-ai .
 
-docker-down:
-	@echo ">>> Stopping Docker containers..."
-	docker-compose down
-
-logs:
-	docker-compose logs -f
+docker-run:
+	docker run -p 8000:8000 -v ./models:/app/models luakhoe-ai
 
 # Test
 test:
 	@echo ">>> Running tests..."
-	@$(VENV_PYTHON) tests/test_api.py
+	@$(VENV_PYTHON) -m pytest tests/ -v
 
-# Maintenance
-freeze:
-	@echo ">>> Updating requirements.txt..."
-	@$(VENV_PIP) freeze > requirements.txt
-
+# Cleanup
 clean:
 	@echo ">>> Cleaning up..."
 	@if exist "$(VENV)" rd /s /q $(VENV)

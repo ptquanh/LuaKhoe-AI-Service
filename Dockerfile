@@ -1,31 +1,28 @@
-# Sử dụng base image chính thức của PyTorch (đã có sẵn CUDA và Torch)
-FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
+# Lightweight Python image — no CUDA/PyTorch needed for ONNX CPU inference
+FROM python:3.11-slim
 
-# Set environment variables
+# Prevent .pyc files and enable unbuffered output
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set the working directory
 WORKDIR /app
 
-# Install system dependencies (OpenCV requires libGL)
-RUN apt-get update && apt-get install -y \
+# System dependencies for OpenCV (used by ultralytics)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install 
+# Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --default-timeout=1000 -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
+# Copy application source
 COPY . .
 
-# Create models and data directories
-RUN mkdir -p models data/uploads data/knowledge_base logs tests/test_images
+# Ensure model directory exists
+RUN mkdir -p models logs
 
-# Expose port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
