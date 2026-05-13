@@ -1,32 +1,23 @@
 import os
 import sys
 
-# Ensure project root is in path 
+# Ensure project root is in path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from src.shared.utils.logger import logger
+from src.modules.predict import controller as predict
 import uvicorn
 
-# Import Routers
-from src.modules.system import controller as system
-from src.modules.predict import controller as predict
-from src.modules.advisory import controller as advisory
-from src.modules.analyze import controller as analyze
-from src.shared.middlewares.dependencies import rag_state
-
 app = FastAPI(
-    title="Lúa Khỏe AI - Rice Disease Detection & Advisory",
-    description=(
-        "Scalable API with Strategy Pattern for AI Inference, Storage, "
-        "and RAG-based agronomic recommendations."
-    ),
-    version="2.0.0"
+    title="Lúa Khỏe AI — Rice Disease Inference Service",
+    description="Lightweight microservice for ONNX-based rice disease detection via image URL.",
+    version="3.0.0",
 )
 
-# Enable CORS for frontend/backend integration
+# CORS — allow backend service to call this
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,50 +26,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include Routers
-app.include_router(system.router)
-app.include_router(system.admin_router)
+# Mount routes
 app.include_router(predict.router)
-app.include_router(advisory.router)
-app.include_router(analyze.router)
+
+
+@app.get("/health", tags=["System"])
+async def health_check():
+    return {
+        "status": "online",
+        "service": "luakhoe-ai-inference",
+        "model_strategy": settings.ACTIVE_MODEL_STRATEGY,
+    }
+
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Initializing Lúa Khỏe AI Service v2.0...")
-    logger.info(f"AI Strategy: {settings.ACTIVE_MODEL_STRATEGY}")
-    logger.info(f"Storage Strategy: {settings.STORAGE_TYPE}")
+    logger.info("Starting Lúa Khỏe AI Inference Service v3.0")
+    logger.info(f"Model Strategy: {settings.ACTIVE_MODEL_STRATEGY}")
+    logger.info(f"Model Path: {settings.MODEL_WEIGHTS_PATH}")
+    logger.info(f"Confidence Threshold: {settings.CONFIDENCE_THRESHOLD}")
 
-    # Initialize RAG pipeline if credentials are present
-    if settings.is_rag_enabled:
-        try:
-            from src.shared.database import init_db
-            from src.modules.system.config_service import ConfigService
-            from src.modules.advisory.repository import VectorStoreService
-            from src.modules.advisory.recommendation_graph import RecommendationGraphBuilder
-            from src.modules.advisory.ingestion import IngestionPipeline
-
-            await init_db()
-            await ConfigService.load_all()
-
-            rag_state.vector_store = VectorStoreService()
-            builder = RecommendationGraphBuilder(rag_state.vector_store)
-            rag_state.recommendation_graph = builder.build()
-            rag_state.ingestion_pipeline = IngestionPipeline(rag_state.vector_store)
-
-            chunk_count = await rag_state.vector_store.get_chunk_count()
-            logger.info(
-                f"RAG pipeline initialized — "
-                f"Groq ({settings.GROQ_LLM_MODEL}) + "
-                f"Gemini Embeddings ({settings.GEMINI_EMBEDDING_MODEL}) + pgvector "
-                f"({chunk_count} chunks in DB)"
-            )
-        except Exception as e:
-            logger.error(f"RAG pipeline initialization failed: {e}")
-            logger.warning("Continuing without RAG — /recommend will return 503")
-    else:
-        logger.warning(
-            "RAG pipeline disabled — GOOGLE_API_KEY, GROQ_API_KEY, or DATABASE_URL not set"
-        )
 
 if __name__ == "__main__":
-    uvicorn.run("src.main:app", host=settings.HOST, port=settings.PORT, reload=settings.DEBUG)
+    uvicorn.run(
+        "src.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+    )

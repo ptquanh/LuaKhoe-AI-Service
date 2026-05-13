@@ -1,21 +1,44 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
-from src.modules.predict.dto import PredictionResult
+# pyrefly: ignore [missing-import]
+from fastapi import APIRouter, Depends, HTTPException, Body
+import time
+from src.modules.predict.dto import PredictionResult, PredictionRequest
 from src.modules.predict.service import BaseModelInference
-from src.shared.utils.storage import BaseStorage
-from src.shared.middlewares.dependencies import get_engine, get_storage
-from src.shared.utils.helpers import run_prediction_logic
+from src.shared.middlewares.dependencies import get_engine, validator
+from src.shared.utils.image_loader import download_image_from_url
 from src.shared.utils.logger import logger
 
 router = APIRouter(tags=["Prediction"])
 
 @router.post("/predict", response_model=PredictionResult)
 async def predict(
-    file: UploadFile = File(...),
+    request: PredictionRequest = Body(...),
     engine: BaseModelInference = Depends(get_engine),
-    storage: BaseStorage = Depends(get_storage),
 ):
     try:
-        return await run_prediction_logic(file, engine, storage)
+        start_time = time.time()
+        
+        # 1. Download image from URL
+        image = download_image_from_url(request.image_url)
+        
+        # 2. Validation
+        if not validator.is_valid_image(image):
+            raise HTTPException(status_code=400, detail="Invalid rice leaf image.")
+            
+        # 3. Model Prediction
+        result = engine.predict(image)
+        
+        # 4. Post-inference Checks
+        result = validator.check_confidence(result)
+        
+        # 5. Metadata
+        latency = (time.time() - start_time) * 1000
+        result.update({
+            "latency_ms": round(latency, 2),
+        })
+        
+        logger.info(f"Predicted {result['disease']} in {latency:.1f}ms")
+        
+        return result
     except HTTPException:
         raise
     except Exception as e:
