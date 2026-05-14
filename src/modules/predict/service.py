@@ -80,9 +80,11 @@ class ONNXInference(BaseModelInference):
 
         cls_array = result.boxes.cls.cpu().numpy()
         conf_array = result.boxes.conf.cpu().numpy()
+        
+        from ultralytics.utils.plotting import colors
 
         # Group by disease class → keep max confidence
-        disease_map: Dict[str, float] = {}
+        disease_map: Dict[str, Any] = {}
         for i in range(len(cls_array)):
             conf = float(conf_array[i])
             if conf < settings.CONFIDENCE_THRESHOLD:
@@ -90,6 +92,9 @@ class ONNXInference(BaseModelInference):
 
             class_idx = int(cls_array[i])
             name = self._resolve_class_name(class_idx)
+            
+            c = colors(class_idx, bgr=False)
+            hex_color = f"#{c[0]:02x}{c[1]:02x}{c[2]:02x}"
 
             # Get box (xyxy)
             box = result.boxes.xyxy[i].cpu().numpy().tolist()
@@ -103,7 +108,8 @@ class ONNXInference(BaseModelInference):
                 disease_map[name] = {
                     "confidence": conf,
                     "box": box,
-                    "polygon": polygon
+                    "polygon": polygon,
+                    "color": hex_color
                 }
 
         # Sort by confidence descending
@@ -112,7 +118,8 @@ class ONNXInference(BaseModelInference):
                 "disease": name, 
                 "confidence": data["confidence"],
                 "box": data["box"],
-                "polygon": data["polygon"]
+                "polygon": data["polygon"],
+                "color": data["color"]
             }
             for name, data in sorted(disease_map.items(), key=lambda x: x[1]["confidence"], reverse=True)
         ]
@@ -133,7 +140,8 @@ class ONNXInference(BaseModelInference):
         try:
             # result.plot() returns a BGR numpy array with annotations drawn
             annotated_bgr = result.plot(
-                conf=True,
+                labels=False,
+                conf=False,
                 line_width=2,
                 font_size=None,
                 pil=False,
