@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
+from src.modules.predict.constants import WATER_NORMAL, GROWTH_TILLERING, DENSITY_MEDIUM
 
 
 class Detection(BaseModel):
@@ -10,8 +11,30 @@ class Detection(BaseModel):
     color: Optional[str] = None
 
 
+class FieldParams(BaseModel):
+    """User-reported field condition parameters."""
+    water: str = WATER_NORMAL        # "Ngập úng" | "Bình thường" | "Khô hạn"
+    growth: str = GROWTH_TILLERING   # "Mạ" | "Đẻ nhánh" | "Làm đòng" | "Trỗ bông" | "Chín"
+    density: str = DENSITY_MEDIUM    # "Dày" | "Vừa" | "Thưa"
+    fog: bool = False
+    leafhopper: bool = False
+    pesticide: bool = False
+
+
 class PredictionRequest(BaseModel):
     image_url: str
+    province: Optional[str] = None
+    gps_lat: Optional[float] = None
+    gps_lng: Optional[float] = None
+    field_params: Optional[FieldParams] = None
+
+
+class EnvAdjustment(BaseModel):
+    """Environment adjustment metadata returned in response."""
+    original_scores: Dict[str, float]
+    adjusted_scores: Dict[str, float]
+    weather: Dict[str, Any]
+    applied: bool
 
 
 class PredictionResult(BaseModel):
@@ -23,3 +46,4 @@ class PredictionResult(BaseModel):
     latency_ms: float
     low_confidence: Optional[bool] = False
     annotated_image: Optional[str] = None
+    env_adjustment: Optional[EnvAdjustment] = None

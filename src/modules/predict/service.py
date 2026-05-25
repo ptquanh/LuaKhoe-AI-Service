@@ -2,9 +2,12 @@ from abc import ABC, abstractmethod
 import base64
 import io
 import os
+# pyrefly: ignore [missing-import]
 from PIL import Image
 from config import settings
 from typing import Dict, Any, List
+from src.modules.predict.env_adjustment import adjust_prediction
+from src.modules.predict.constants import DISEASE_HEALTHY
 
 # 1. Base Class for Model Inference Strategy
 class BaseModelInference(ABC):
@@ -13,7 +16,14 @@ class BaseModelInference(ABC):
         pass
 
     @abstractmethod
-    def predict(self, input_data: Any) -> Dict[str, Any]:
+    def predict(
+        self, 
+        image: Any, 
+        province: str = None, 
+        gps_lat: float = None, 
+        gps_lng: float = None, 
+        field_params: dict = None
+    ) -> Dict[str, Any]:
         pass
 
 # 2. ONNX Implementation (Recommended for Production)
@@ -29,10 +39,18 @@ class ONNXInference(BaseModelInference):
         
         # Initialize ultralytics YOLO with the ONNX model
         # ultralytics natively supports .onnx files and handles preprocessing automatically! 
+        # pyrefly: ignore [missing-import]
         from ultralytics import YOLO
         self.model = YOLO(model_path, task='segment')
 
-    def predict(self, image) -> Dict[str, Any]:
+    def predict(
+        self, 
+        image, 
+        province: str = None, 
+        gps_lat: float = None, 
+        gps_lng: float = None, 
+        field_params: dict = None
+    ) -> Dict[str, Any]:
         if self.model is None:
             # Mock return for development if file is missing
             return self._mock_predict()
@@ -53,12 +71,43 @@ class ONNXInference(BaseModelInference):
         num_detections = len(result.boxes) if result.boxes is not None else 0
         detections = self._aggregate_detections(result, num_detections)
 
+        env_adjustment_result = None
+
+        if detections and settings.ENV_ADJUSTMENT_ENABLED:
+            # Build original scores dict {disease: max_confidence}
+            original_scores = {d["disease"]: d["confidence"] for d in detections}
+            
+            # Apply env adjustment
+            adjustment = adjust_prediction(
+                yolo_scores=original_scores,
+                province=province,
+                gps_lat=gps_lat,
+                gps_lng=gps_lng,
+                field_params=field_params
+            )
+            
+            # Update detections with adjusted scores
+            adjusted_scores = adjustment["all_scores"]
+            for d in detections:
+                if d["disease"] in adjusted_scores:
+                    d["confidence"] = adjusted_scores[d["disease"]]
+                    
+            # Sort detections by new confidence
+            detections.sort(key=lambda x: x["confidence"], reverse=True)
+            
+            env_adjustment_result = {
+                "original_scores": original_scores,
+                "adjusted_scores": adjusted_scores,
+                "weather": adjustment["weather"],
+                "applied": True,
+            }
+
         # Primary disease = highest confidence detection (or Healthy)
         if detections:
             disease = detections[0]["disease"]
             confidence = detections[0]["confidence"]
         else:
-            disease = "Healthy"
+            disease = DISEASE_HEALTHY
             confidence = 1.0
 
         # Generate annotated image with masks, bboxes, and labels
@@ -71,6 +120,7 @@ class ONNXInference(BaseModelInference):
             "status": "success",
             "model_version": settings.ACTIVE_MODEL_STRATEGY,
             "annotated_image": annotated_image_b64,
+            "env_adjustment": env_adjustment_result,
         }
 
     def _aggregate_detections(self, result, num_detections: int) -> List[Dict[str, Any]]:
@@ -81,6 +131,7 @@ class ONNXInference(BaseModelInference):
         cls_array = result.boxes.cls.cpu().numpy()
         conf_array = result.boxes.conf.cpu().numpy()
         
+        # pyrefly: ignore [missing-import]
         from ultralytics.utils.plotting import colors
 
         # Group by disease class → keep max confidence
@@ -161,7 +212,7 @@ class ONNXInference(BaseModelInference):
 
     def _mock_predict(self):
         return {
-            "disease": "Healthy", 
+            "disease": DISEASE_HEALTHY, 
             "confidence": 0.99,
             "detections": [],
             "status": "mock_success",

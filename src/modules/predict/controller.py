@@ -25,7 +25,13 @@ async def predict(
             raise HTTPException(status_code=400, detail="Invalid rice leaf image.")
             
         # 3. Model Prediction
-        result = engine.predict(image)
+        result = engine.predict(
+            image=image,
+            province=request.province,
+            gps_lat=request.gps_lat,
+            gps_lng=request.gps_lng,
+            field_params=request.field_params.model_dump() if request.field_params else None
+        )
         
         # 4. Post-inference Checks
         result = validator.check_confidence(result)

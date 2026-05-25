@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     CONFIDENCE_THRESHOLD: float = 0.75
     IOU_THRESHOLD: float = 0.45
 
+    # Environment Adjustment (Open-Meteo weather + field conditions)
+    ENV_ADJUSTMENT_ENABLED: bool = True
+
     # Disease Labels (comma-separated)
     DISEASE_LABELS: str = "Healthy,Bacterial_Leaf_Blight,Brown_Spot,Leaf_Blast,Leaf_Smut"
 
