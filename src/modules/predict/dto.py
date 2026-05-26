@@ -9,6 +9,7 @@ class Detection(BaseModel):
     box: Optional[List[float]] = None
     polygon: Optional[List[List[float]]] = None
     color: Optional[str] = None
+    affected_area_ratio: Optional[float] = 0.0
 
 
 class FieldParams(BaseModel):
@@ -27,6 +28,7 @@ class PredictionRequest(BaseModel):
     gps_lat: Optional[float] = None
     gps_lng: Optional[float] = None
     field_params: Optional[FieldParams] = None
+    weather: Optional[Dict[str, Any]] = None
 
 
 class EnvAdjustment(BaseModel):

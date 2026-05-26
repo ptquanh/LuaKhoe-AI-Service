@@ -41,7 +41,7 @@ async def health_check():
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting Lúa Khỏe AI Inference Service v3.0")
+    logger.info("Starting Lua Khoe AI Inference Service v3.0")
     logger.info(f"Model Strategy: {settings.ACTIVE_MODEL_STRATEGY}")
     logger.info(f"Model Path: {settings.MODEL_WEIGHTS_PATH}")
     logger.info(f"Confidence Threshold: {settings.CONFIDENCE_THRESHOLD}")

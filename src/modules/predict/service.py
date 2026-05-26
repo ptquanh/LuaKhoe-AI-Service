@@ -22,7 +22,8 @@ class BaseModelInference(ABC):
         province: str = None, 
         gps_lat: float = None, 
         gps_lng: float = None, 
-        field_params: dict = None
+        field_params: dict = None,
+        weather: dict = None
     ) -> Dict[str, Any]:
         pass
 
@@ -49,7 +50,8 @@ class ONNXInference(BaseModelInference):
         province: str = None, 
         gps_lat: float = None, 
         gps_lng: float = None, 
-        field_params: dict = None
+        field_params: dict = None,
+        weather: dict = None
     ) -> Dict[str, Any]:
         if self.model is None:
             # Mock return for development if file is missing
@@ -83,7 +85,8 @@ class ONNXInference(BaseModelInference):
                 province=province,
                 gps_lat=gps_lat,
                 gps_lng=gps_lng,
-                field_params=field_params
+                field_params=field_params,
+                weather=weather
             )
             
             # Update detections with adjusted scores
@@ -128,9 +131,27 @@ class ONNXInference(BaseModelInference):
         if num_detections == 0 or result.boxes is None:
             return []
 
+        import numpy as np
+
         cls_array = result.boxes.cls.cpu().numpy()
         conf_array = result.boxes.conf.cpu().numpy()
         
+        # Compute combined mask for each class to get accurate total affected area ratio
+        class_masks: Dict[str, np.ndarray] = {}
+        if result.masks is not None and result.masks.data is not None:
+            for i in range(len(cls_array)):
+                conf = float(conf_array[i])
+                if conf < settings.CONFIDENCE_THRESHOLD:
+                    continue
+                class_idx = int(cls_array[i])
+                name = self._resolve_class_name(class_idx)
+                
+                # result.masks.data is a tensor of shape [N, H, W]
+                mask_np = result.masks.data[i].cpu().numpy()
+                if name not in class_masks:
+                    class_masks[name] = np.zeros_like(mask_np, dtype=bool)
+                class_masks[name] |= (mask_np > 0)
+
         # pyrefly: ignore [missing-import]
         from ultralytics.utils.plotting import colors
 
@@ -155,12 +176,18 @@ class ONNXInference(BaseModelInference):
             if result.masks is not None:
                 polygon = result.masks.xyn[i].tolist() # Normalized coordinates
 
+            affected_area_ratio = 0.0
+            if name in class_masks:
+                mask_union = class_masks[name]
+                affected_area_ratio = float(np.sum(mask_union) / mask_union.size)
+
             if name not in disease_map or conf > disease_map[name]["confidence"]:
                 disease_map[name] = {
                     "confidence": conf,
                     "box": box,
                     "polygon": polygon,
-                    "color": hex_color
+                    "color": hex_color,
+                    "affected_area_ratio": affected_area_ratio
                 }
 
         # Sort by confidence descending
@@ -170,7 +197,8 @@ class ONNXInference(BaseModelInference):
                 "confidence": data["confidence"],
                 "box": data["box"],
                 "polygon": data["polygon"],
-                "color": data["color"]
+                "color": data["color"],
+                "affected_area_ratio": data["affected_area_ratio"]
             }
             for name, data in sorted(disease_map.items(), key=lambda x: x[1]["confidence"], reverse=True)
         ]

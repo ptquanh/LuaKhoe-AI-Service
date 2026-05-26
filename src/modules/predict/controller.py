@@ -30,7 +30,8 @@ async def predict(
             province=request.province,
             gps_lat=request.gps_lat,
             gps_lng=request.gps_lng,
-            field_params=request.field_params.model_dump() if request.field_params else None
+            field_params=request.field_params.model_dump() if request.field_params else None,
+            weather=request.weather
         )
         
         # 4. Post-inference Checks

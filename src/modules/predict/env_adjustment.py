@@ -282,6 +282,7 @@ def adjust_prediction(
     gps_lat: float | None = None,
     gps_lng: float | None = None,
     field_params: dict[str, Any] | None = None,
+    weather: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Combine YOLO confidence scores with environmental factors.
@@ -292,6 +293,7 @@ def adjust_prediction(
         gps_lat:      GPS Latitude
         gps_lng:      GPS Longitude
         field_params: {water, growth, density, fog, leafhopper, pesticide}
+        weather:      Pre-fetched weather dictionary
 
     Returns:
         dict with disease_en, disease_vi, final_confidence, original_score,
@@ -300,10 +302,12 @@ def adjust_prediction(
     field_params = field_params or {}
 
     # Step 1: Get weather
-    if gps_lat is not None and gps_lng is not None:
+    if weather is not None:
+        logger.info(f"Using weather data passed from backend orchestrator: {weather}")
+    elif gps_lat is not None and gps_lng is not None:
         weather = get_weather(gps_lat, gps_lng, location_name=province or "Selected Location")
     else:
-        logger.warning("No GPS coordinates provided — using default weather")
+        logger.warning("No GPS coordinates or weather data provided — using default weather")
         weather = {
             "humidity": 75.0, "temperature": 28.0,
             "rainfall": "none", "wind": "calm", "source": "default",
