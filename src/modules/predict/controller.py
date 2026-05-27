@@ -31,11 +31,13 @@ async def predict(
             gps_lat=request.gps_lat,
             gps_lng=request.gps_lng,
             field_params=request.field_params.model_dump() if request.field_params else None,
-            weather=request.weather
+            weather=request.weather,
+            confidence_threshold=request.confidence_threshold,
+            ai_model_version=request.ai_model_version
         )
         
         # 4. Post-inference Checks
-        result = validator.check_confidence(result)
+        result = validator.check_confidence(result, confidence_threshold=request.confidence_threshold)
         
         # 5. Metadata
         latency = (time.time() - start_time) * 1000

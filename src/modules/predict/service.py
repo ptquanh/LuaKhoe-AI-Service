@@ -23,7 +23,9 @@ class BaseModelInference(ABC):
         gps_lat: float = None, 
         gps_lng: float = None, 
         field_params: dict = None,
-        weather: dict = None
+        weather: dict = None,
+        confidence_threshold: float = None,
+        ai_model_version: str = None
     ) -> Dict[str, Any]:
         pass
 
@@ -51,16 +53,19 @@ class ONNXInference(BaseModelInference):
         gps_lat: float = None, 
         gps_lng: float = None, 
         field_params: dict = None,
-        weather: dict = None
+        weather: dict = None,
+        confidence_threshold: float = None,
+        ai_model_version: str = None
     ) -> Dict[str, Any]:
         if self.model is None:
             # Mock return for development if file is missing
-            return self._mock_predict()
+            return self._mock_predict(ai_model_version=ai_model_version)
             
         # Run pure inference, similar to the provided snippet
+        conf_val = confidence_threshold if confidence_threshold is not None else settings.CONFIDENCE_THRESHOLD
         preds = self.model.predict(
             source=image,
-            conf=settings.CONFIDENCE_THRESHOLD,
+            conf=conf_val,
             iou=settings.IOU_THRESHOLD,
             imgsz=settings.IMAGE_INPUT_SIZE,
             save=False,
@@ -71,7 +76,7 @@ class ONNXInference(BaseModelInference):
 
         # Parse all detections
         num_detections = len(result.boxes) if result.boxes is not None else 0
-        detections = self._aggregate_detections(result, num_detections)
+        detections = self._aggregate_detections(result, num_detections, confidence_threshold=confidence_threshold)
 
         env_adjustment_result = None
 
@@ -121,12 +126,12 @@ class ONNXInference(BaseModelInference):
             "confidence": confidence,
             "detections": detections,
             "status": "success",
-            "model_version": settings.ACTIVE_MODEL_STRATEGY,
+            "model_version": ai_model_version if ai_model_version else settings.ACTIVE_MODEL_STRATEGY,
             "annotated_image": annotated_image_b64,
             "env_adjustment": env_adjustment_result,
         }
 
-    def _aggregate_detections(self, result, num_detections: int) -> List[Dict[str, Any]]:
+    def _aggregate_detections(self, result, num_detections: int, confidence_threshold: float = None) -> List[Dict[str, Any]]:
         """Aggregate detections by disease class, keeping highest confidence per class."""
         if num_detections == 0 or result.boxes is None:
             return []
@@ -136,12 +141,14 @@ class ONNXInference(BaseModelInference):
         cls_array = result.boxes.cls.cpu().numpy()
         conf_array = result.boxes.conf.cpu().numpy()
         
+        conf_val = confidence_threshold if confidence_threshold is not None else settings.CONFIDENCE_THRESHOLD
+
         # Compute combined mask for each class to get accurate total affected area ratio
         class_masks: Dict[str, np.ndarray] = {}
         if result.masks is not None and result.masks.data is not None:
             for i in range(len(cls_array)):
                 conf = float(conf_array[i])
-                if conf < settings.CONFIDENCE_THRESHOLD:
+                if conf < conf_val:
                     continue
                 class_idx = int(cls_array[i])
                 name = self._resolve_class_name(class_idx)
@@ -159,7 +166,7 @@ class ONNXInference(BaseModelInference):
         disease_map: Dict[str, Any] = {}
         for i in range(len(cls_array)):
             conf = float(conf_array[i])
-            if conf < settings.CONFIDENCE_THRESHOLD:
+            if conf < conf_val:
                 continue
 
             class_idx = int(cls_array[i])
@@ -238,13 +245,13 @@ class ONNXInference(BaseModelInference):
         except Exception:
             return None
 
-    def _mock_predict(self):
+    def _mock_predict(self, ai_model_version: str = None):
         return {
             "disease": DISEASE_HEALTHY, 
             "confidence": 0.99,
             "detections": [],
             "status": "mock_success",
-            "model_version": "mock_v1.0",
+            "model_version": ai_model_version if ai_model_version else "mock_v1.0",
             "annotated_image": None,
             "note": "Pretrained ONNX model file not found, returned mock result."
         }

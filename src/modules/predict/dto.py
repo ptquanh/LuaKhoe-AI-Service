@@ -29,6 +29,8 @@ class PredictionRequest(BaseModel):
     gps_lng: Optional[float] = None
     field_params: Optional[FieldParams] = None
     weather: Optional[Dict[str, Any]] = None
+    confidence_threshold: Optional[float] = None
+    ai_model_version: Optional[str] = None
 
 
 class EnvAdjustment(BaseModel):

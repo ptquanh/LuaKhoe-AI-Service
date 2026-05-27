@@ -25,15 +25,16 @@ class DataValidator:
         return True
 
     @staticmethod
-    def check_confidence(prediction_result: dict):
+    def check_confidence(prediction_result: dict, confidence_threshold: float = None):
         """
         Check if AI is confident enough. If not, log for future training.
         """
         confidence = prediction_result.get("confidence", 0)
-        if confidence < settings.CONFIDENCE_THRESHOLD:
+        threshold = confidence_threshold if confidence_threshold is not None else settings.CONFIDENCE_THRESHOLD
+        if confidence < threshold:
             logger.info(
                 f"Low confidence prediction: {prediction_result['disease']} "
-                f"({confidence:.2f} < {settings.CONFIDENCE_THRESHOLD})"
+                f"({confidence:.2f} < {threshold})"
             )
             # Tag as low confidence for future data collection
             prediction_result["low_confidence"] = True
