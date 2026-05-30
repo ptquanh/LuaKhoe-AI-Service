@@ -51,3 +51,25 @@ class PredictionResult(BaseModel):
     low_confidence: Optional[bool] = False
     annotated_image: Optional[str] = None
     env_adjustment: Optional[EnvAdjustment] = None
+
+
+class ReScoringDetection(BaseModel):
+    disease: str
+    confidence: float
+
+
+class ReScoringRequest(BaseModel):
+    original_results: List[ReScoringDetection]
+    new_image_url: str
+    confidence_threshold: Optional[float] = None
+    ai_model_version: Optional[str] = None
+
+
+class ReScoringResult(BaseModel):
+    disease: str
+    confidence: float
+    detections: List[Detection] = []
+    status: str
+    model_version: str
+    latency_ms: float
+    annotated_image: Optional[str] = None
