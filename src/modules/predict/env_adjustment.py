@@ -200,69 +200,70 @@ def compute_weather_weights(
 # ============================================================
 
 def compute_field_weights(
-    water: str = WATER_NORMAL,
-    growth: str = GROWTH_TILLERING,
-    density: str = DENSITY_MEDIUM,
-    fog: bool = False,
-    leafhopper: bool = False,
-    pesticide: bool = False,
+    water: str | None = None,
+    growth: str | None = None,
+    density: str | None = None,
+    fog: bool | None = None,
+    pesticide: bool | None = None,
 ) -> dict[str, float]:
-    """Compute field condition adjustment weights per disease class."""
-
+    """
+    Compute field condition adjustment weights per disease class.
+    Only applies weights for fields the user has explicitly selected.
+    Fields that are None or empty string are skipped entirely.
+    """
     w = {k: 1.0 for k in CLASS_NAMES_VI}
 
-    # Water status
-    if water == WATER_FLOODED:
-        w[DISEASE_SHEATH_BLIGHT]    *= 1.40
-        w[DISEASE_BACTERIAL_BLIGHT] *= 1.20
-        w[DISEASE_BROWN_SPOT]       *= 1.15
-        w[DISEASE_RICE_BLAST]       *= 0.90
-    elif water == WATER_DROUGHT:
-        w[DISEASE_BROWN_SPOT]       *= 1.30
-        w[DISEASE_SHEATH_BLIGHT]    *= 0.80
-        w[DISEASE_BACTERIAL_BLIGHT] *= 0.85
+    # Water status — skip if not provided
+    if water and water != "":
+        if water == WATER_FLOODED:
+            w[DISEASE_SHEATH_BLIGHT]    *= 1.40
+            w[DISEASE_BACTERIAL_BLIGHT] *= 1.20
+            w[DISEASE_BROWN_SPOT]       *= 1.15
+            w[DISEASE_RICE_BLAST]       *= 0.90
+        elif water == WATER_DROUGHT:
+            w[DISEASE_BROWN_SPOT]       *= 1.30
+            w[DISEASE_SHEATH_BLIGHT]    *= 0.80
+            w[DISEASE_BACTERIAL_BLIGHT] *= 0.85
 
-    # Growth stage
-    if growth == GROWTH_SEEDLING:
-        w[DISEASE_RICE_BLAST]    *= 1.30
-        w[DISEASE_BROWN_SPOT]    *= 1.20
-    elif growth == GROWTH_TILLERING:
-        w[DISEASE_SHEATH_BLIGHT] *= 1.20
-        w[DISEASE_RICE_BLAST]    *= 1.25
-        w[DISEASE_RICE_TUNGRO]   *= 1.20
-    elif growth == GROWTH_BOOTING:
-        w[DISEASE_SHEATH_BLIGHT]    *= 1.35
-        w[DISEASE_BACTERIAL_BLIGHT] *= 1.25
-        w[DISEASE_RICE_BLAST]       *= 1.20
-    elif growth == GROWTH_HEADING:
-        w[DISEASE_BACTERIAL_BLIGHT] *= 1.30
-        w[DISEASE_SHEATH_BLIGHT]    *= 1.25
-        w[DISEASE_BROWN_SPOT]       *= 1.20
-    elif growth == GROWTH_RIPENING:
-        w[DISEASE_BROWN_SPOT]       *= 1.15
-        w[DISEASE_BACTERIAL_BLIGHT] *= 1.10
+    # Growth stage — skip if not provided
+    if growth and growth != "":
+        if growth == GROWTH_SEEDLING:
+            w[DISEASE_RICE_BLAST]    *= 1.30
+            w[DISEASE_BROWN_SPOT]    *= 1.20
+        elif growth == GROWTH_TILLERING:
+            w[DISEASE_SHEATH_BLIGHT] *= 1.20
+            w[DISEASE_RICE_BLAST]    *= 1.25
+            w[DISEASE_RICE_TUNGRO]   *= 1.20
+        elif growth == GROWTH_BOOTING:
+            w[DISEASE_SHEATH_BLIGHT]    *= 1.35
+            w[DISEASE_BACTERIAL_BLIGHT] *= 1.25
+            w[DISEASE_RICE_BLAST]       *= 1.20
+        elif growth == GROWTH_HEADING:
+            w[DISEASE_BACTERIAL_BLIGHT] *= 1.30
+            w[DISEASE_SHEATH_BLIGHT]    *= 1.25
+            w[DISEASE_BROWN_SPOT]       *= 1.20
+        elif growth == GROWTH_RIPENING:
+            w[DISEASE_BROWN_SPOT]       *= 1.15
+            w[DISEASE_BACTERIAL_BLIGHT] *= 1.10
 
-    # Sowing density
-    if density == DENSITY_THICK:
-        w[DISEASE_SHEATH_BLIGHT]    *= 1.40
-        w[DISEASE_RICE_BLAST]       *= 1.20
-        w[DISEASE_BACTERIAL_BLIGHT] *= 1.15
-    elif density == DENSITY_THIN:
-        w[DISEASE_SHEATH_BLIGHT]    *= 0.80
-        w[DISEASE_RICE_BLAST]       *= 0.90
+    # Sowing density — skip if not provided
+    if density and density != "":
+        if density == DENSITY_THICK:
+            w[DISEASE_SHEATH_BLIGHT]    *= 1.40
+            w[DISEASE_RICE_BLAST]       *= 1.20
+            w[DISEASE_BACTERIAL_BLIGHT] *= 1.15
+        elif density == DENSITY_THIN:
+            w[DISEASE_SHEATH_BLIGHT]    *= 0.80
+            w[DISEASE_RICE_BLAST]       *= 0.90
 
-    # Morning fog → high nighttime humidity → favors blast
-    if fog:
+    # Fog — skip if None (user hasn't chosen)
+    if fog is True:
         w[DISEASE_RICE_BLAST]    *= 1.45
         w[DISEASE_BROWN_SPOT]    *= 1.20
         w[DISEASE_SHEATH_BLIGHT] *= 1.15
 
-    # Leafhopper presence → Tungro vector
-    if leafhopper:
-        w[DISEASE_RICE_TUNGRO] *= 2.00
-
-    # Recent pesticide application → reduced natural disease risk
-    if pesticide:
+    # Pesticide — skip if None (user hasn't chosen)
+    if pesticide is True:
         w[DISEASE_BACTERIAL_BLIGHT] *= 0.80
         w[DISEASE_BROWN_SPOT]       *= 0.80
         w[DISEASE_RICE_BLAST]       *= 0.80
@@ -323,12 +324,11 @@ def adjust_prediction(
 
     # Step 3: Field condition weights
     field_weights = compute_field_weights(
-        water=field_params.get("water", WATER_NORMAL),
-        growth=field_params.get("growth", GROWTH_TILLERING),
-        density=field_params.get("density", DENSITY_MEDIUM),
-        fog=field_params.get("fog", False),
-        leafhopper=field_params.get("leafhopper", False),
-        pesticide=field_params.get("pesticide", False),
+        water=field_params.get("water") or None,
+        growth=field_params.get("growth") or None,
+        density=field_params.get("density") or None,
+        fog=field_params.get("fog"),
+        pesticide=field_params.get("pesticide"),
     )
 
     # Step 4: Combine weights (Weather * Field * Base Class Weight)
