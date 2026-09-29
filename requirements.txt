@@ -5,6 +5,7 @@ pydantic-settings
 
 # Inference
 onnxruntime
+onnx
 ultralytics
 numpy
 pillow

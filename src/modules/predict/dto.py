@@ -31,6 +31,7 @@ class PredictionRequest(BaseModel):
     weather: Optional[Dict[str, Any]] = None
     confidence_threshold: Optional[float] = None
     ai_model_version: Optional[str] = None
+    model_path: Optional[str] = None
 
 
 class EnvAdjustment(BaseModel):
@@ -63,6 +64,7 @@ class ReScoringRequest(BaseModel):
     new_image_url: str
     confidence_threshold: Optional[float] = None
     ai_model_version: Optional[str] = None
+    model_path: Optional[str] = None
 
 
 class ReScoringResult(BaseModel):

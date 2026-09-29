@@ -25,17 +25,23 @@ class BaseModelInference(ABC):
         field_params: dict = None,
         weather: dict = None,
         confidence_threshold: float = None,
-        ai_model_version: str = None
+        ai_model_version: str = None,
+        model_path: str = None
     ) -> Dict[str, Any]:
         pass
 
 # 2. ONNX Implementation (Recommended for Production)
 class ONNXInference(BaseModelInference):
+    _models_cache: Dict[str, Any] = {}
+
     def __init__(self):
         self.model = None
         self.labels = settings.labels_list
 
     def load_model(self, model_path: str):
+        if model_path in self._models_cache:
+            return
+            
         if not os.path.exists(model_path):
             print(f"Warning: Model file {model_path} not found. Running in mock mode.")
             return
@@ -44,7 +50,12 @@ class ONNXInference(BaseModelInference):
         # ultralytics natively supports .onnx files and handles preprocessing automatically! 
         # pyrefly: ignore [missing-import]
         from ultralytics import YOLO
-        self.model = YOLO(model_path, task='segment')
+        try:
+            print(f"Loading {model_path} for ONNX Runtime inference...")
+            self._models_cache[model_path] = YOLO(model_path, task='segment')
+            print(f"Successfully loaded model from {model_path}")
+        except Exception as e:
+            print(f"Error loading model from {model_path}: {e}")
 
     def predict(
         self, 
@@ -55,8 +66,23 @@ class ONNXInference(BaseModelInference):
         field_params: dict = None,
         weather: dict = None,
         confidence_threshold: float = None,
-        ai_model_version: str = None
+        ai_model_version: str = None,
+        model_path: str = None
     ) -> Dict[str, Any]:
+        yolo_model = None
+        if model_path:
+            if model_path not in self._models_cache:
+                self.load_model(model_path)
+            yolo_model = self._models_cache.get(model_path)
+            
+        if not yolo_model:
+            default_path = settings.MODEL_WEIGHTS_PATH
+            if default_path not in self._models_cache:
+                self.load_model(default_path)
+            yolo_model = self._models_cache.get(default_path)
+            
+        self.model = yolo_model
+        
         if self.model is None:
             # Mock return for development if file is missing
             return self._mock_predict(ai_model_version=ai_model_version)

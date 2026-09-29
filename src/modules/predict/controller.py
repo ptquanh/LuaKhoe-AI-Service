@@ -33,7 +33,8 @@ async def predict(
             field_params=request.field_params.model_dump() if request.field_params else None,
             weather=request.weather,
             confidence_threshold=request.confidence_threshold,
-            ai_model_version=request.ai_model_version
+            ai_model_version=request.ai_model_version,
+            model_path=request.model_path
         )
         
         # 4. Post-inference Checks
@@ -77,7 +78,8 @@ async def re_score(
         pred_res = engine.predict(
             image=image,
             confidence_threshold=conf_threshold,
-            ai_model_version=request.ai_model_version
+            ai_model_version=request.ai_model_version,
+            model_path=request.model_path
         )
         
         new_detections = pred_res.get("detections", [])
