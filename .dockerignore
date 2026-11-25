@@ -1,3 +1,11 @@
+# Docker & env
+Dockerfile
+.dockerignore
+.env
+.env.*
+Makefile
+README.md
+
 # Thư mục môi trường ảo (Nặng nhất)
 venv/
 .venv/

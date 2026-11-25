@@ -13,15 +13,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install CPU-only PyTorch first so ultralytics does not pull ~5GB of CUDA/NVIDIA wheels
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --default-timeout=120 --retries 5 \
+    --index-url https://download.pytorch.org/whl/cpu \
+    torch torchvision && \
+    pip install --no-cache-dir --default-timeout=120 --retries 5 -r requirements.txt
 
 # Copy application source
 COPY . .
 
-# Ensure model directory exists
-RUN mkdir -p models logs
+# Ensure model, log, and shared backend cache directories exist
+RUN mkdir -p /app/models /app/logs /backend/.models_cache
 
 EXPOSE 8000
 
